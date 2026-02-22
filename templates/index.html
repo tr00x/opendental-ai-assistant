@@ -1,0 +1,686 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dental Appointments</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    background: #f0f4f8;
+    color: #2d3748;
+    min-height: 100vh;
+  }
+
+  /* ── Header ── */
+  header {
+    background: linear-gradient(135deg, #2b6cb0, #2c5282);
+    color: white;
+    padding: 18px 32px;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+  }
+  header svg { opacity: .9; }
+  header h1 { font-size: 1.4rem; font-weight: 600; letter-spacing: .3px; }
+  header span { font-size: .85rem; opacity: .75; margin-left: 4px; }
+
+  /* ── Layout ── */
+  .layout {
+    display: grid;
+    grid-template-columns: 320px 1fr;
+    gap: 24px;
+    padding: 24px 32px;
+    max-width: 1300px;
+    margin: 0 auto;
+  }
+
+  /* ── Panel ── */
+  .panel {
+    background: white;
+    border-radius: 14px;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+    overflow: hidden;
+  }
+  .panel-header {
+    padding: 16px 20px;
+    font-weight: 600;
+    font-size: .85rem;
+    text-transform: uppercase;
+    letter-spacing: .6px;
+    color: #718096;
+    border-bottom: 1px solid #edf2f7;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  /* ── Calendar ── */
+  .cal-nav {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px 20px 10px;
+  }
+  .cal-nav button {
+    background: none;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    width: 32px; height: 32px;
+    cursor: pointer;
+    font-size: 1rem;
+    color: #4a5568;
+    transition: background .15s;
+  }
+  .cal-nav button:hover { background: #edf2f7; }
+  .cal-title { font-weight: 700; font-size: 1rem; color: #2d3748; }
+
+  .cal-grid {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    padding: 0 12px 16px;
+    gap: 3px;
+  }
+  .cal-dow {
+    text-align: center;
+    font-size: .72rem;
+    font-weight: 600;
+    color: #a0aec0;
+    padding: 6px 0;
+    text-transform: uppercase;
+  }
+  .cal-day {
+    position: relative;
+    text-align: center;
+    padding: 7px 4px;
+    border-radius: 9px;
+    cursor: pointer;
+    font-size: .9rem;
+    transition: background .15s, color .15s;
+    min-height: 44px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+  }
+  .cal-day:hover:not(.empty) { background: #ebf4ff; }
+  .cal-day.empty { cursor: default; }
+  .cal-day.has-apts { color: #2b6cb0; font-weight: 600; }
+  .cal-day.has-apts::before {
+    content: '';
+    position: absolute;
+    top: 5px; right: 5px;
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: #4299e1;
+  }
+  .cal-day.selected {
+    background: #2b6cb0 !important;
+    color: white !important;
+  }
+  .cal-day.selected::before { background: white; }
+  .cal-day.today-marker { background: #ebf4ff; }
+  .cal-day .apt-count {
+    font-size: .65rem;
+    color: #4299e1;
+    font-weight: 700;
+    line-height: 1;
+  }
+  .cal-day.selected .apt-count { color: rgba(255,255,255,.8); }
+
+  /* ── Filters ── */
+  .filters {
+    padding: 16px 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .filter-row {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  .filter-row label {
+    font-size: .75rem;
+    font-weight: 600;
+    color: #718096;
+    text-transform: uppercase;
+    letter-spacing: .4px;
+  }
+  .filter-row select {
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    padding: 7px 10px;
+    font-size: .88rem;
+    color: #2d3748;
+    background: #f7fafc;
+    cursor: pointer;
+    outline: none;
+    transition: border .15s;
+  }
+  .filter-row select:focus { border-color: #4299e1; }
+
+  .toggle-filters {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .toggle-label {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    cursor: pointer;
+    font-size: .88rem;
+    color: #4a5568;
+    user-select: none;
+  }
+  .toggle-label input[type=checkbox] {
+    width: 16px; height: 16px;
+    accent-color: #2b6cb0;
+    cursor: pointer;
+  }
+
+  /* ── Right side ── */
+  .right-col { display: flex; flex-direction: column; gap: 20px; }
+
+  /* ── Stats bar ── */
+  .stats {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 16px;
+  }
+  .stat-card {
+    background: white;
+    border-radius: 14px;
+    padding: 18px 20px;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+  }
+  .stat-card .val {
+    font-size: 2rem;
+    font-weight: 700;
+    color: #2b6cb0;
+    line-height: 1;
+  }
+  .stat-card .lbl {
+    font-size: .8rem;
+    color: #a0aec0;
+    margin-top: 4px;
+    font-weight: 500;
+  }
+
+  /* ── Appointment list ── */
+  .apt-list { padding: 0; }
+  .apt-item {
+    display: grid;
+    grid-template-columns: 70px 1fr auto;
+    gap: 0 16px;
+    padding: 14px 20px;
+    border-bottom: 1px solid #f7fafc;
+    align-items: start;
+    transition: background .12s;
+  }
+  .apt-item:last-child { border-bottom: none; }
+  .apt-item:hover { background: #f7fafc; }
+
+  .apt-time {
+    font-size: .95rem;
+    font-weight: 700;
+    color: #2b6cb0;
+    padding-top: 2px;
+  }
+  .apt-time .room {
+    font-size: .72rem;
+    font-weight: 500;
+    color: #a0aec0;
+    margin-top: 2px;
+  }
+
+  .apt-main .name {
+    font-weight: 600;
+    font-size: .95rem;
+    color: #2d3748;
+  }
+  .apt-main .proc {
+    font-size: .82rem;
+    color: #718096;
+    margin-top: 2px;
+  }
+  .apt-main .phone {
+    font-size: .8rem;
+    color: #4a5568;
+    margin-top: 3px;
+  }
+  .apt-main .note {
+    font-size: .78rem;
+    color: #718096;
+    margin-top: 3px;
+    font-style: italic;
+    max-width: 420px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .apt-badges {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    align-items: flex-end;
+    padding-top: 2px;
+  }
+  .badge {
+    font-size: .72rem;
+    font-weight: 600;
+    padding: 3px 8px;
+    border-radius: 20px;
+    white-space: nowrap;
+  }
+  .badge-new    { background: #c6f6d5; color: #276749; }
+  .badge-risk   { background: #fed7d7; color: #9b2c2c; }
+  .badge-bday   { background: #feebc8; color: #7b341e; }
+  .badge-prov   { background: #e9d8fd; color: #553c9a; }
+
+  /* ── Empty / loading ── */
+  .empty-state {
+    text-align: center;
+    padding: 60px 20px;
+    color: #a0aec0;
+  }
+  .empty-state .icon { font-size: 2.5rem; margin-bottom: 12px; }
+  .empty-state p { font-size: .95rem; }
+
+  .loading {
+    text-align: center;
+    padding: 40px;
+    color: #a0aec0;
+    font-size: .9rem;
+  }
+
+  /* ── Scrollable list ── */
+  .apt-scroll {
+    max-height: calc(100vh - 340px);
+    overflow-y: auto;
+  }
+
+  @media (max-width: 900px) {
+    .layout { grid-template-columns: 1fr; }
+    .stats { grid-template-columns: repeat(2, 1fr); }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M12 2C8 2 4 5.5 4 9c0 5.25 8 13 8 13s8-7.75 8-13c0-3.5-4-7-8-7z"/>
+    <circle cx="12" cy="9" r="2.5" fill="white" stroke="none"/>
+  </svg>
+  <h1>Dental Appointments <span>Open Dental</span></h1>
+</header>
+
+<div class="layout">
+
+  <!-- Left: Calendar + Filters -->
+  <div style="display:flex;flex-direction:column;gap:20px;">
+
+    <!-- Calendar -->
+    <div class="panel">
+      <div class="cal-nav">
+        <button id="prevMonth">&#8249;</button>
+        <div class="cal-title" id="calTitle"></div>
+        <button id="nextMonth">&#8250;</button>
+      </div>
+      <div class="cal-grid" id="calGrid"></div>
+    </div>
+
+    <!-- Filters -->
+    <div class="panel">
+      <div class="panel-header">Filters</div>
+      <div class="filters">
+        <div class="filter-row">
+          <label>Provider</label>
+          <select id="filterProvider">
+            <option value="">All providers</option>
+          </select>
+        </div>
+        <div class="filter-row">
+          <label>Operatory</label>
+          <select id="filterRoom">
+            <option value="">All operatories</option>
+          </select>
+        </div>
+        <div class="toggle-filters">
+          <label class="toggle-label">
+            <input type="checkbox" id="filterNew">
+            🆕 New patients only
+          </label>
+          <label class="toggle-label">
+            <input type="checkbox" id="filterRisk">
+            ⚠️ High-risk (2+ missed) only
+          </label>
+          <label class="toggle-label">
+            <input type="checkbox" id="filterBday">
+            🎂 Birthdays today only
+          </label>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Right: Stats + List -->
+  <div class="right-col">
+
+    <!-- Stats -->
+    <div class="stats">
+      <div class="stat-card">
+        <div class="val" id="statTotal">—</div>
+        <div class="lbl">Total appointments</div>
+      </div>
+      <div class="stat-card">
+        <div class="val" id="statNew">—</div>
+        <div class="lbl">New patients</div>
+      </div>
+      <div class="stat-card">
+        <div class="val" id="statRisk">—</div>
+        <div class="lbl">High-risk patients</div>
+      </div>
+      <div class="stat-card">
+        <div class="val" id="statBday">—</div>
+        <div class="lbl">Birthdays today</div>
+      </div>
+    </div>
+
+    <!-- Appointment list -->
+    <div class="panel" style="flex:1;">
+      <div class="panel-header">
+        <span>Appointments</span>
+        <span id="listCount" style="font-weight:400;font-size:.8rem;"></span>
+      </div>
+      <div class="apt-scroll">
+        <div class="apt-list" id="aptList">
+          <div class="empty-state">
+            <div class="icon">📅</div>
+            <p>Select a date on the calendar</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+// ── State ──────────────────────────────────────────────────
+let currentYear  = new Date().getFullYear();
+let currentMonth = new Date().getMonth(); // 0-based
+let selectedDate = null;
+let allApts      = [];
+let brokenHistory= {};
+let monthCounts  = {};
+
+const MONTHS = ['January','February','March','April','May','June',
+                'July','August','September','October','November','December'];
+const DAYS   = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+
+// ── Calendar ───────────────────────────────────────────────
+async function loadMonth(year, month) {
+  const res = await fetch(`/api/month?year=${year}&month=${month + 1}`);
+  monthCounts = await res.json();
+  renderCalendar(year, month);
+}
+
+function renderCalendar(year, month) {
+  document.getElementById('calTitle').textContent = `${MONTHS[month]} ${year}`;
+
+  const grid = document.getElementById('calGrid');
+  grid.innerHTML = '';
+
+  // Day-of-week headers
+  DAYS.forEach(d => {
+    const el = document.createElement('div');
+    el.className = 'cal-dow';
+    el.textContent = d;
+    grid.appendChild(el);
+  });
+
+  const firstDay = new Date(year, month, 1).getDay();
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const today = new Date();
+
+  // Empty cells
+  for (let i = 0; i < firstDay; i++) {
+    const el = document.createElement('div');
+    el.className = 'cal-day empty';
+    grid.appendChild(el);
+  }
+
+  for (let d = 1; d <= daysInMonth; d++) {
+    const el = document.createElement('div');
+    el.className = 'cal-day';
+
+    const dateStr = `${year}-${String(month+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+    const count = monthCounts[dateStr] || 0;
+
+    const numEl = document.createElement('span');
+    numEl.textContent = d;
+    el.appendChild(numEl);
+
+    if (count > 0) {
+      el.classList.add('has-apts');
+      const cntEl = document.createElement('div');
+      cntEl.className = 'apt-count';
+      cntEl.textContent = count;
+      el.appendChild(cntEl);
+    }
+
+    if (year === today.getFullYear() && month === today.getMonth() && d === today.getDate()) {
+      el.classList.add('today-marker');
+    }
+
+    if (selectedDate === dateStr) {
+      el.classList.add('selected');
+    }
+
+    if (count > 0) {
+      el.addEventListener('click', () => selectDate(dateStr, el));
+    }
+
+    grid.appendChild(el);
+  }
+}
+
+function selectDate(dateStr, el) {
+  document.querySelectorAll('.cal-day.selected').forEach(e => e.classList.remove('selected'));
+  el.classList.add('selected');
+  selectedDate = dateStr;
+  loadAppointments(dateStr);
+}
+
+// ── Appointments ───────────────────────────────────────────
+async function loadAppointments(dateStr) {
+  const list = document.getElementById('aptList');
+  list.innerHTML = '<div class="loading">Loading…</div>';
+  updateStats([], {});
+
+  const res = await fetch(`/api/appointments?date=${dateStr}`);
+  const data = await res.json();
+
+  allApts = data.appointments || [];
+  brokenHistory = data.broken_history || {};
+
+  populateFilters(allApts);
+  applyFilters();
+}
+
+function populateFilters(apts) {
+  const provSel = document.getElementById('filterProvider');
+  const roomSel = document.getElementById('filterRoom');
+
+  const provVal = provSel.value;
+  const roomVal = roomSel.value;
+
+  const provs = [...new Set(apts.map(a => providerName(a)))].sort();
+  const rooms = [...new Set(apts.map(a => a.OperatoryName || `Op ${a.OperatoryNum}`))].sort();
+
+  provSel.innerHTML = '<option value="">All providers</option>';
+  provs.forEach(p => {
+    const o = document.createElement('option');
+    o.value = p; o.textContent = p;
+    if (p === provVal) o.selected = true;
+    provSel.appendChild(o);
+  });
+
+  roomSel.innerHTML = '<option value="">All operatories</option>';
+  rooms.forEach(r => {
+    const o = document.createElement('option');
+    o.value = r; o.textContent = r;
+    if (r === roomVal) o.selected = true;
+    roomSel.appendChild(o);
+  });
+}
+
+function applyFilters() {
+  const provFilter  = document.getElementById('filterProvider').value;
+  const roomFilter  = document.getElementById('filterRoom').value;
+  const newOnly     = document.getElementById('filterNew').checked;
+  const riskOnly    = document.getElementById('filterRisk').checked;
+  const bdayOnly    = document.getElementById('filterBday').checked;
+
+  const today = selectedDate ? new Date(selectedDate + 'T00:00:00') : new Date();
+
+  let filtered = allApts.filter(a => {
+    if (provFilter && providerName(a) !== provFilter) return false;
+    if (roomFilter && (a.OperatoryName || `Op ${a.OperatoryNum}`) !== roomFilter) return false;
+    if (newOnly && !a.IsNewPatient) return false;
+    if (riskOnly && (brokenHistory[a.PatNum] || 0) < 2) return false;
+    if (bdayOnly && !isBirthday(a, today)) return false;
+    return true;
+  });
+
+  renderList(filtered, today);
+  updateStats(allApts, brokenHistory, today);
+  document.getElementById('listCount').textContent =
+    filtered.length !== allApts.length
+      ? `${filtered.length} of ${allApts.length}`
+      : `${allApts.length} total`;
+}
+
+function renderList(apts, today) {
+  const list = document.getElementById('aptList');
+
+  if (apts.length === 0) {
+    list.innerHTML = `<div class="empty-state">
+      <div class="icon">🦷</div>
+      <p>No appointments match the filters</p>
+    </div>`;
+    return;
+  }
+
+  list.innerHTML = '';
+
+  apts.forEach(a => {
+    const missed  = brokenHistory[a.PatNum] || 0;
+    const bday    = isBirthday(a, today);
+    const time    = formatTime(a.AptDateTime);
+    const phone   = a.WirelessPhone || a.HmPhone || '';
+    const room    = a.OperatoryName || `Op ${a.OperatoryNum}`;
+    const prov    = providerName(a);
+    const note    = (a.Note || '').replace(/\r\n|\n/g, ' ').trim();
+
+    const item = document.createElement('div');
+    item.className = 'apt-item';
+
+    item.innerHTML = `
+      <div class="apt-time">
+        ${time}
+        <div class="room">${room}</div>
+      </div>
+      <div class="apt-main">
+        <div class="name">${a.PatFName} ${a.PatLName}</div>
+        <div class="proc">${a.ProcDescript || '—'}</div>
+        ${phone ? `<div class="phone">📞 ${phone}</div>` : ''}
+        ${note  ? `<div class="note">${note}</div>` : ''}
+      </div>
+      <div class="apt-badges">
+        <span class="badge badge-prov">${prov}</span>
+        ${a.IsNewPatient ? '<span class="badge badge-new">🆕 New</span>' : ''}
+        ${missed >= 2    ? `<span class="badge badge-risk">⚠️ ${missed} missed</span>` : ''}
+        ${bday           ? '<span class="badge badge-bday">🎂 Birthday</span>' : ''}
+      </div>
+    `;
+
+    list.appendChild(item);
+  });
+}
+
+function updateStats(apts, broken, today) {
+  const t = today || new Date();
+  document.getElementById('statTotal').textContent = apts.length || '0';
+  document.getElementById('statNew').textContent   = apts.filter(a => a.IsNewPatient).length;
+  document.getElementById('statRisk').textContent  = apts.filter(a => (broken[a.PatNum]||0) >= 2).length;
+  document.getElementById('statBday').textContent  = apts.filter(a => isBirthday(a, t)).length;
+}
+
+// ── Helpers ────────────────────────────────────────────────
+function providerName(a) {
+  if (a.ProvAbbr) return a.ProvAbbr;
+  return `${a.ProvFName} ${a.ProvLName}`.trim() || `Prov ${a.ProvNum}`;
+}
+
+function formatTime(dt) {
+  const d = new Date(dt);
+  let h = d.getHours(), m = d.getMinutes();
+  const ampm = h >= 12 ? 'PM' : 'AM';
+  h = h % 12 || 12;
+  return `${h}:${String(m).padStart(2,'0')} ${ampm}`;
+}
+
+function isBirthday(a, today) {
+  if (!a.Birthdate) return false;
+  const bd = new Date(a.Birthdate + 'T00:00:00');
+  if (bd.getFullYear() < 1901) return false;
+  return bd.getMonth() === today.getMonth() && bd.getDate() === today.getDate();
+}
+
+// ── Event listeners ────────────────────────────────────────
+document.getElementById('prevMonth').addEventListener('click', () => {
+  currentMonth--;
+  if (currentMonth < 0) { currentMonth = 11; currentYear--; }
+  loadMonth(currentYear, currentMonth);
+});
+
+document.getElementById('nextMonth').addEventListener('click', () => {
+  currentMonth++;
+  if (currentMonth > 11) { currentMonth = 0; currentYear++; }
+  loadMonth(currentYear, currentMonth);
+});
+
+['filterProvider','filterRoom','filterNew','filterRisk','filterBday'].forEach(id => {
+  document.getElementById(id).addEventListener('change', applyFilters);
+});
+
+// ── Init ───────────────────────────────────────────────────
+(async () => {
+  await loadMonth(currentYear, currentMonth);
+
+  // Auto-select today if it has appointments
+  const today = new Date();
+  const todayStr = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}-${String(today.getDate()).padStart(2,'0')}`;
+  if (monthCounts[todayStr]) {
+    const cells = document.querySelectorAll('.cal-day');
+    cells.forEach(el => {
+      const num = parseInt(el.querySelector('span')?.textContent);
+      if (num === today.getDate() && !el.classList.contains('empty')) {
+        selectDate(todayStr, el);
+      }
+    });
+  }
+})();
+</script>
+</body>
+</html>
